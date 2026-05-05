@@ -29,7 +29,7 @@ pytestmark = [
 
 @allure.story("Множество src IP балансирует между двумя маршрутами")
 @allure.severity(allure.severity_level.CRITICAL)
-@allure.title(f"{N_PACKETS} случайных Src IP → балансировка |p−0.5| < {BALANCE_TOLERANCE}")
+@allure.title(f"{N_PACKETS} случайных Src IP → соотношение балансируемого трафика в пределах 40%..60%")
 def test_many_src_ips_distribute_evenly(topology, tmp_path):
     with allure.step(f"Захват на R1 + отправка {N_PACKETS} ICMP с random Src IP"):
         with Capture(
