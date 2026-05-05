@@ -8,7 +8,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-echo "[run.sh] docker compose up -d"
+echo "[run.sh] docker compose up -d --build"
 docker compose up -d
 
 echo "[run.sh] waiting for OSPF convergence on R1 (ECMP route to 10.0.2.0/24)..."
