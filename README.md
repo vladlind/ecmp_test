@@ -79,7 +79,7 @@ H1 дополнительно имеет secondary range **10.99.0.0/16** на u
 | 4 | `test_ecmp_random_seq.py`       | Random и sequential Src IP оба балансируются      | тот же, что #3, для обеих стратегий   |
 | 5 | `test_ecmp_stickiness.py`       | Один Src IP всегда уходит одним nexthop'ом        | 0 нарушений per-flow consistency    |
 | 6 | `test_ecmp_edge_ips.py`         | Граничные Src IP диапазона 10.99.0.0/16 (network/broadcast) обрабатываются hash'ом без дропов | оба IP захвачены и каждый идет через один интерфейс |
-| 7 | `test_ecmp_link_failure.py`     | После `to-r2 down` на R1 трафик уходит целиком через R3, без потерь   | в FIB остаётся 1 nexthop через R3; ≥99% пакетов пойманы на to-r3 |
+| 7 | `test_ecmp_link_failure.py`     | После `to-r2 down` на R1 трафик уходит целиком через R3, без потерь; после `to-r2 up` второй nexthop возвращается и трафик балансируется между R2 и R3   | в FIB остаётся 1 nexthop через R3; \|p − 0.5\| < 0.1 на каждом из путей |
 
 Каждый тест прикрепляет к Allure-репорту pcap'ы с интерфейсов R1
 (`to-r2`, `to-r3`) и текстовую сводку счётчиков и долей.
