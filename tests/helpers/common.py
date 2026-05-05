@@ -22,10 +22,10 @@ ECMP_NEXTHOPS = ("10.0.12.2", "10.0.13.2")
 ECMP_INTERFACES = ["to-r2", "to-r3"]
 
 
-def exec_in(container: str, cmd: str, *, timeout: float = 30.0) -> subprocess.CompletedProcess:
+def exec_in(container: str, cmd: str, sh: str = "sh", *, timeout: float = 30.0) -> subprocess.CompletedProcess:
     """`docker exec <container> sh -c '<cmd>'` без проверки exit code."""
     return subprocess.run(
-        ["docker", "exec", container, "sh", "-c", cmd],
+        ["docker", "exec", container, sh, "-c", cmd],
         capture_output=True, text=True, timeout=timeout,
     )
 
