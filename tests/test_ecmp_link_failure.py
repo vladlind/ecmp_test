@@ -145,8 +145,6 @@ def test_link_failure_falls_back_to_remaining_path(to_r2_down, tmp_path):
     Похоже на описание в баг-репорте - https://github.com/FRRouting/frr/issues/15505
     """
     exec_in("r1", "/usr/lib/frr/frrinit.sh restart")
-    
-    routes_after_up = ""
 
     if not _wait_until(_route_via_r2_and_r3, RECONVERGE_TIMEOUT_S):
         routes_after_up = exec_in("r1", f"ip route show {ECMP_DEST_NET}").stdout
@@ -158,6 +156,8 @@ def test_link_failure_falls_back_to_remaining_path(to_r2_down, tmp_path):
             pytrace=False,
         )
 
+    routes_after_up = exec_in("r1", f"ip route show {ECMP_DEST_NET}").stdout
+    
     allure.attach(
         routes_after_up,
         name="r1 route after to-r2 is up",
