@@ -4,12 +4,11 @@
 Гасим to-r2 на R1 (`ip link set to-r2 down`), ждём, пока OSPF удалит nexthop
 через R2, потом шлём трафик с разными Src IP. Проверяем:
   (а) ECMP-маршрут на R1 теперь имеет один nexthop (через R3);
-  (б) ни один пакет не потерян после сходимости (>=99% из отправленных
-      пойманы на R1);
+  (б) ни один пакет не потерян после сходимости (>=99% из отправленных пойманы на R1);
   (в) 100% пойманного трафика прошло через to-r3.
 
 В teardown поднимаем интерфейс обратно и ждём восстановления ECMP, чтобы
-последующие тесты сессии работали на полноценной топологии.
+проверить балансировку по обоим nexthop'ам (каждый должен получить примерно половину трафика)
 """
 
 from __future__ import annotations
@@ -69,7 +68,7 @@ def _route_has_ecmp() -> bool:
     return out.count("nexthop") >= 2
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def to_r2_down(topology):
     """
     Кладет to-r2 на R1, ждёт OSPF-сходимости на единственный nexthop через R3.
@@ -95,10 +94,10 @@ def to_r2_down(topology):
                 pytrace=False,
             )
 
-
-@allure.story("После отключения одного из линков трафик идет по оставшемуся пути, после восстановления - балансируется")
+@pytest.mark.order(1)
+@allure.story("После отключения одного из линков трафик идет по оставшемуся пути")
 @allure.severity(allure.severity_level.CRITICAL)
-@allure.title("to-r2 down: маршрут удаляется на R3, весь трафик идёт через R3, без потерь, после восстановления to-r2 - балансируется по двум nexthop'ам")
+@allure.title("to-r2 down: маршрут удаляется на R3, весь трафик идёт через R3, без потерь")
 def test_link_failure_falls_back_to_remaining_path(to_r2_down, tmp_path):
     route_after_down = exec_in("r1", f"ip route show {ECMP_DEST_NET}").stdout
     allure.attach(
@@ -137,7 +136,11 @@ def test_link_failure_falls_back_to_remaining_path(to_r2_down, tmp_path):
         f"Не весь захваченный трафик прошёл через to-r3: {totals}"
     )
 
-
+@pytest.mark.order(2)
+@allure.story("После после восстановления линка - трафик балансируется")
+@allure.severity(allure.severity_level.CRITICAL)
+@allure.title("to-r2 up: маршрут восстанавливается на R3 и балансируется по двум nexthop'ам")
+def test_link_recovery_balances_between_paths(to_r2_down, tmp_path):
     exec_in("r1", "ip link set to-r2 up")
     """
     Рестарт frr вынужденный - после включения линка zebra почему-то не принимает
@@ -157,7 +160,7 @@ def test_link_failure_falls_back_to_remaining_path(to_r2_down, tmp_path):
         )
 
     routes_after_up = exec_in("r1", f"ip route show {ECMP_DEST_NET}").stdout
-    
+
     allure.attach(
         routes_after_up,
         name="r1 route after to-r2 is up",
