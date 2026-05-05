@@ -35,7 +35,7 @@ def gen_src_ips(strategy: str, count: int, src: str, src_base: str) -> list[str]
         return [str(pool[i % len(pool)]) for i in range(count)]
     if strategy == "random":
         rnd = random.Random(0xECF1)  # повторяемость случайного ряда
-        return [str(rnd.choice(pool)) for _ in range(count)]
+        return [str(ip) for ip in rnd.sample(pool, count)]
     raise ValueError(f"Unknown strategy: {strategy}")
 
 
