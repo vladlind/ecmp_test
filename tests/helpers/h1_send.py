@@ -21,6 +21,8 @@ from scapy.all import IP, ICMP, UDP, TCP, Raw, send, conf
 
 conf.verb = 0
 
+rnd = random.Random(0xECF1)  # повторяемость случайного ряда
+
 def gen_src_ips(strategy: str, count: int, src: str, src_base: str) -> list[str]:
     if strategy == "single":
         return [src] * count
@@ -34,7 +36,6 @@ def gen_src_ips(strategy: str, count: int, src: str, src_base: str) -> list[str]
     if strategy == "sequential":
         return [str(pool[i % len(pool)]) for i in range(count)]
     if strategy == "random":
-        rnd = random.Random(0xECF1)  # повторяемость случайного ряда
         return [str(ip) for ip in rnd.sample(pool, count)]
     raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -52,11 +53,14 @@ def main() -> int:
 
     src_ips = gen_src_ips(args.strategy, args.count, args.src, args.src_base)
 
+    def rand_sport() -> int:
+        return rnd.randint(1025, 65535)
+
     def l4(i: int):
         if args.proto == "UDP":
-            return UDP(dport=123) / Raw(load="abc")
+            return UDP(sport=rand_sport(), dport=123) / Raw(load="abc")
         if args.proto == "TCP":
-            return TCP(dport=445, flags="S")
+            return TCP(sport=rand_sport(), dport=445, flags="S")
         return ICMP(type=8, id=0xBEEF, seq=i & 0xFFFF)
 
     packets = [
