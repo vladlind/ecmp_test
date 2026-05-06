@@ -1,8 +1,10 @@
 """
-Сценарий #4: оба способа выбора Src IP (random и sequential) дают
+Сценарий #4: разные способы выбора Src IP (random, sequential, sparse) дают
 сбалансированное распределение.
 
-Sequential проверяет, что последовательные адреса всё равно дают разные пути.
+Sequential — соседние адреса.
+Sparse — равномерно разреженные адреса по всему пулу адресов.
+Random — псевдослучайная выборка.
 
 Pass: те же критерии, что в test_ecmp_distribution для каждой стратегии.
 """
@@ -27,7 +29,7 @@ pytestmark = [
 ]
 
 
-@pytest.mark.parametrize("strategy", ["random", "sequential"])
+@pytest.mark.parametrize("strategy", ["random", "sequential", "sparse"])
 @allure.story("Случайные и последовательные Src IPs распределяются по интерфейсам сбалансировано")
 @allure.severity(allure.severity_level.NORMAL)
 @allure.title("Стратегия Src IP={strategy}: распределение сбалансировано")

@@ -15,7 +15,7 @@ H1_SCRIPT = "/helpers/h1_send.py"
 H1_SRCS_FILE = "/tmp/sent_srcs.txt"
 
 
-Strategy = Literal["single", "sequential", "random", "edges"]
+Strategy = Literal["single", "sequential", "random", "sparse", "edges"]
 
 
 def send_from_h1(

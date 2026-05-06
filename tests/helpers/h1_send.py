@@ -7,6 +7,7 @@
   single      — все пакеты с одного --src
   sequential  — берёт последовательные адреса из --src-base
   random      — случайные адреса из --src-base
+  sparse      — равномерно разреженные адреса из всего пула адресов
   edges       — берет крайние адреса --src-base (network и broadcast)
 """
 
@@ -37,6 +38,9 @@ def gen_src_ips(strategy: str, count: int, src: str, src_base: str) -> list[str]
         return [str(pool[i % len(pool)]) for i in range(count)]
     if strategy == "random":
         return [str(ip) for ip in rnd.sample(pool, count)]
+    if strategy == "sparse":
+        step = max(1, len(pool) // count)
+        return [str(pool[(i * step) % len(pool)]) for i in range(count)]
     raise ValueError(f"Unknown strategy: {strategy}")
 
 
@@ -44,7 +48,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--count", type=int, required=True)
     ap.add_argument("--dst", default="10.0.2.10")
-    ap.add_argument("--strategy", choices=["single", "sequential", "random", "edges"], default="single")
+    ap.add_argument("--strategy", choices=["single", "sequential", "random", "sparse", "edges"], default="single")
     ap.add_argument("--src", default="10.0.1.10")
     ap.add_argument("--src-base", default="10.99.0.0/16")
     ap.add_argument("--output-srcs", default="/tmp/sent_srcs.txt")
