@@ -17,7 +17,7 @@ import ipaddress
 import random
 import sys
 
-from scapy.all import IP, ICMP, send, conf
+from scapy.all import IP, ICMP, UDP, TCP, Raw, send, conf
 
 conf.verb = 0
 
@@ -47,11 +47,20 @@ def main() -> int:
     ap.add_argument("--src", default="10.0.1.10")
     ap.add_argument("--src-base", default="10.99.0.0/16")
     ap.add_argument("--output-srcs", default="/tmp/sent_srcs.txt")
+    ap.add_argument("--proto", default="ICMP")
     args = ap.parse_args()
 
     src_ips = gen_src_ips(args.strategy, args.count, args.src, args.src_base)
+
+    def l4(i: int):
+        if args.proto == "UDP":
+            return UDP(dport=123) / Raw(load="abc")
+        if args.proto == "TCP":
+            return TCP(dport=445, flags="S")
+        return ICMP(type=8, id=0xBEEF, seq=i & 0xFFFF)
+
     packets = [
-        IP(src=s, dst=args.dst) / ICMP(type=8, id=0xBEEF, seq=i & 0xFFFF)
+        IP(src=s, dst=args.dst) / l4(i)
         for i, s in enumerate(src_ips)
     ]
     send(packets, verbose=False, inter=0)

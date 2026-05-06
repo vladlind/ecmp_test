@@ -75,7 +75,7 @@ H1 дополнительно имеет secondary range **10.99.0.0/16** на u
 |---|---------------------------------|---------------------------------------------------|-------------------------------------|
 | 1 | `test_ecmp_smoke.py`            | ECMP-маршрут к 10.0.2.0/24 на R1; H1 пингует H2   | в FIB ≥2 nexthop'а; ping 0% loss          |
 | 2 | `test_ecmp_same_src.py`         | С одного Src IP весь трафик одним путем     | ≥99% пакетов на одном интерфейсе    |
-| 3 | `test_ecmp_distribution.py`     | 1000 случайных Src IP → балансировка              | \|p − 0.5\| < 0.1 на каждом из путей |
+| 3 | `test_ecmp_distribution.py`     | 1000 случайных Src IP → балансировка; параметризован по `{ICMP, UDP, TCP}` — проверяем, что L3-hash (Src+Dst IP) одинаково балансирует разные L4-протоколы | \|p − 0.5\| < 0.1 на каждом из путей для каждого из трёх протоколов |
 | 4 | `test_ecmp_random_seq.py`       | Random и sequential Src IP оба балансируются      | тот же, что #3, для обеих стратегий   |
 | 5 | `test_ecmp_stickiness.py`       | Один Src IP всегда уходит одним nexthop'ом        | 0 нарушений per-flow consistency    |
 | 6 | `test_ecmp_edge_ips.py`         | Граничные Src IP диапазона 10.99.0.0/16 (network/broadcast) обрабатываются hash'ом без дропов | оба IP захвачены и каждый идет через один интерфейс |
@@ -102,7 +102,7 @@ ecmp-test/
 ├── tests/
 │   ├── pytest.ini                 ← маркеры + verbose
 │   ├── conftest.py                ← фикстура topology
-│   ├── test_ecmp_*.py             ← 7 сценариев
+│   ├── test_ecmp_*.py             ← 7 сценариев (12 тестов)
 │   └── helpers/
 │       ├── h1_send.py             ← scapy-генератор (запускается ВНУТРИ h1)
 │       ├── traffic.py             ← runner-side обёртка над h1_send

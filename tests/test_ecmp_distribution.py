@@ -26,16 +26,16 @@ pytestmark = [
     allure.feature("Distribution"),
 ]
 
-
+@pytest.mark.parametrize("proto", ["ICMP", "UDP", "TCP"])
 @allure.story("Множество src IP балансирует между двумя маршрутами")
 @allure.severity(allure.severity_level.CRITICAL)
-@allure.title(f"{N_PACKETS} случайных Src IP → соотношение балансируемого трафика в пределах 40%..60%")
-def test_many_src_ips_distribute_evenly(topology, tmp_path):
-    with allure.step(f"Захват на R1 + отправка {N_PACKETS} ICMP с random Src IP"):
+@allure.title(f"{N_PACKETS} {{proto}}  случайных Src IP → соотношение балансируемого трафика в пределах 40%..60%")
+def test_many_src_ips_distribute_evenly(topology, tmp_path, proto):
+    with allure.step(f"Захват на R1 + отправка {N_PACKETS} {proto} с random Src IP"):
         with Capture(
             interfaces=ECMP_INTERFACES, bpf=DEFAULT_BPF, output_dir=tmp_path,
         ) as pcaps:
-            send_from_h1(count=N_PACKETS, strategy="random")
+            send_from_h1(count=N_PACKETS, strategy="random", proto=proto)
 
     attach_pcaps(pcaps)
 
@@ -46,7 +46,7 @@ def test_many_src_ips_distribute_evenly(topology, tmp_path):
         f"packets per iface: {totals}\n"
         f"balance ratios:    { {k: round(v, 4) for k,v in ratios.items()} }"
     )
-    allure.attach(summary, name="distribution summary", attachment_type=allure.attachment_type.TEXT)
+    allure.attach(summary, name=f"distribution summary for {proto}", attachment_type=allure.attachment_type.TEXT)
 
     captured = sum(totals.values())
     assert captured >= int(N_PACKETS * 0.95), (

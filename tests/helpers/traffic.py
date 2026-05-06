@@ -26,6 +26,7 @@ def send_from_h1(
     src: str = "10.0.1.10",
     src_base: str = "10.99.0.0/16",
     timeout: float = 60.0,
+    proto: str = "ICMP"
 ) -> list[str]:
     cmd = [
         "docker", "exec", H1_CONTAINER,
@@ -36,6 +37,7 @@ def send_from_h1(
         "--src", src,
         "--src-base", src_base,
         "--output-srcs", H1_SRCS_FILE,
+        "--proto", proto
     ]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if r.returncode != 0:
