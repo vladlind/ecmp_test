@@ -10,14 +10,17 @@ Pass: |доля_пути − 0.5| < 0.1 (т.е. на каждом интерфе
 import allure
 import pytest
 
-from helpers.capture import Capture
-from helpers.common import DEFAULT_BPF, ECMP_INTERFACES, H2_IP, attach_pcaps
-from helpers.traffic import send_from_h1
+from helpers.common import (
+    H2_IP,
+    assert_balanced,
+    assert_no_capture_loss,
+    attach_distribution_summary,
+    run_test_traffic,
+)
 from helpers.analyzer import balance_ratio, total_per_iface
 
 
 N_PACKETS = 1000
-BALANCE_TOLERANCE = 0.1  # |p - 0.5| < 0.1 - отклонение баланса в пределах 10% в обе стороны
 
 
 pytestmark = [
@@ -31,30 +34,13 @@ pytestmark = [
 @allure.severity(allure.severity_level.CRITICAL)
 @allure.title(f"{N_PACKETS} {{proto}}  случайных Src IP → соотношение балансируемого трафика в пределах 40%..60%")
 def test_many_src_ips_distribute_evenly(topology, tmp_path, proto):
-    with allure.step(f"Захват на R1 + отправка {N_PACKETS} {proto} с random Src IP"):
-        with Capture(
-            interfaces=ECMP_INTERFACES, bpf=DEFAULT_BPF, output_dir=tmp_path,
-        ) as pcaps:
-            send_from_h1(count=N_PACKETS, strategy="random", proto=proto)
-
-    attach_pcaps(pcaps)
+    pcaps, _ = run_test_traffic(
+        output_dir=tmp_path, count=N_PACKETS, strategy="random", proto=proto,
+    )
 
     totals = total_per_iface(pcaps, dst_ip=H2_IP)
     ratios = balance_ratio(pcaps, dst_ip=H2_IP)
 
-    summary = (
-        f"packets per iface: {totals}\n"
-        f"balance ratios:    { {k: round(v, 4) for k,v in ratios.items()} }"
-    )
-    allure.attach(summary, name=f"distribution summary for {proto}", attachment_type=allure.attachment_type.TEXT)
-
-    captured = sum(totals.values())
-    assert captured >= int(N_PACKETS * 0.95), (
-        f"Захвачено только {captured}/{N_PACKETS} (<95%) — потери или баг захвата:\n{totals}"
-    )
-
-    for iface, p in ratios.items():
-        assert abs(p - 0.5) < BALANCE_TOLERANCE, (
-            f"Дисбаланс на {iface}: доля {p:.3f} (ожидалось 0.5 ± {BALANCE_TOLERANCE}).\n"
-            f"Полные счётчики: {totals}"
-        )
+    attach_distribution_summary(totals, ratios, name=f"distribution summary for {proto}")
+    assert_no_capture_loss(totals, N_PACKETS)
+    assert_balanced(ratios, totals)

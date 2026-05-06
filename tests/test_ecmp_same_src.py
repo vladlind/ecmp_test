@@ -12,9 +12,7 @@ Pass: >=99% пакетов на одном из {to-r2, to-r3}.
 import allure
 import pytest
 
-from helpers.capture import Capture
-from helpers.common import DEFAULT_BPF, ECMP_INTERFACES, H2_IP, attach_pcaps
-from helpers.traffic import send_from_h1
+from helpers.common import H2_IP, assert_no_capture_loss, run_test_traffic
 from helpers.analyzer import total_per_iface
 
 
@@ -33,25 +31,18 @@ pytestmark = [
 @allure.severity(allure.severity_level.CRITICAL)
 @allure.title("Один Src IP → весь трафик одним nexthop'ом (>=99%)")
 def test_single_src_ip_pins_to_single_path(topology, tmp_path):
-    with allure.step(f"Захват на R1 (to-r2, to-r3) + отправка {N_PACKETS} ICMP с одного Src IP"):
-        with Capture(
-            interfaces=ECMP_INTERFACES, bpf=DEFAULT_BPF, output_dir=tmp_path,
-        ) as pcaps:
-            send_from_h1(count=N_PACKETS, strategy="single", src="10.0.1.10")
-
-    attach_pcaps(pcaps)
+    pcaps, _ = run_test_traffic(
+        output_dir=tmp_path, count=N_PACKETS, strategy="single", src="10.0.1.10",
+    )
 
     totals = total_per_iface(pcaps, dst_ip=H2_IP)
     allure.attach(
         f"{totals}", name="packets per iface", attachment_type=allure.attachment_type.TEXT,
     )
 
-    captured = sum(totals.values())
-    assert captured >= int(N_PACKETS * 0.99), (
-        f"Захвачено только {captured}/{N_PACKETS} пакетов — "
-        f"что-то пропало по дороге (или потерялось в захвате):\n{totals}"
-    )
+    assert_no_capture_loss(totals, N_PACKETS, min_ratio=0.99)
 
+    captured = sum(totals.values())
     max_share = max(totals.values()) / captured
     chosen = max(totals, key=totals.get)
     assert max_share >= SAME_PATH_THRESHOLD, (

@@ -9,9 +9,7 @@ Pass: оба Src IP захвачены, и каждый из них уходит
 import allure
 import pytest
 
-from helpers.capture import Capture
-from helpers.common import DEFAULT_BPF, ECMP_INTERFACES, H2_IP, attach_pcaps
-from helpers.traffic import send_from_h1
+from helpers.common import H2_IP, run_test_traffic
 from helpers.analyzer import src_ip_to_ifaces
 
 
@@ -30,13 +28,9 @@ pytestmark = [
 @allure.severity(allure.severity_level.NORMAL)
 @allure.title("Edge Src IPs (10.99.0.0 и 10.99.255.255): без дропов и через один и тот же интерфейс")
 def test_edge_src_ips_are_handled_consistently(topology, tmp_path):
-    with allure.step(f"Захват на R1 + отправка {N_PACKETS} ICMP с чередующихся edge Src IP"):
-        with Capture(
-            interfaces=ECMP_INTERFACES, bpf=DEFAULT_BPF, output_dir=tmp_path,
-        ) as pcaps:
-            send_from_h1(count=N_PACKETS, strategy="edges")
-
-    attach_pcaps(pcaps)
+    pcaps, _ = run_test_traffic(
+        output_dir=tmp_path, count=N_PACKETS, strategy="edges",
+    )
 
     mapping = src_ip_to_ifaces(pcaps, dst_ip=H2_IP)
 

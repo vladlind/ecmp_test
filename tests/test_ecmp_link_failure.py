@@ -20,16 +20,16 @@ import time
 import allure
 import pytest
 
-from helpers.capture import Capture
 from helpers.common import (
-    DEFAULT_BPF,
     ECMP_DEST_NET,
     H2_IP,
-    attach_pcaps,
+    assert_balanced,
+    assert_no_capture_loss,
+    attach_distribution_summary,
     exec_in,
     exec_in_check,
+    run_test_traffic,
 )
-from helpers.traffic import send_from_h1
 from helpers.analyzer import balance_ratio, total_per_iface
 
 
@@ -37,7 +37,6 @@ N_PACKETS = 500
 RECONVERGE_TIMEOUT_S = 60    # ждем долго, так как приходится рестартовать frr - см.ниже коммент
 DOWN_NEXTHOP = "10.0.12.2"   # через R2 — должен исчезнуть
 ALIVE_NEXTHOP = "10.0.13.2"  # через R3 — должен остаться
-BALANCE_TOLERANCE = 0.1  # |p - 0.5| < 0.1 - отклонение баланса в пределах 10% в обе стороны
 
 pytestmark = [
     pytest.mark.distribution,
@@ -114,13 +113,10 @@ def test_link_failure_falls_back_to_remaining_path(to_r2_down, tmp_path):
         f"Маршрут всё ещё multipath после падения to-r2:\n{route_after_down}"
     )
 
-    with allure.step(f"Захват на to-r3 + отправка {N_PACKETS} ICMP со случайными Src IP"):
-        with Capture(
-            interfaces=["to-r3"], bpf=DEFAULT_BPF, output_dir=tmp_path,
-        ) as pcaps:
-            sent = send_from_h1(count=N_PACKETS, strategy="random")
-
-    attach_pcaps(pcaps)
+    pcaps, sent = run_test_traffic(
+        output_dir=tmp_path, count=N_PACKETS, strategy="random",
+        interfaces=["to-r3"],
+    )
 
     totals = total_per_iface(pcaps, dst_ip=H2_IP)
     allure.attach(
@@ -129,11 +125,8 @@ def test_link_failure_falls_back_to_remaining_path(to_r2_down, tmp_path):
         attachment_type=allure.attachment_type.TEXT,
     )
 
+    assert_no_capture_loss(totals, N_PACKETS, min_ratio=0.99, context="after to-r2 down")
     captured = sum(totals.values())
-    assert captured >= int(N_PACKETS * 0.99), (
-        f"После сходимости поймано {captured}/{N_PACKETS} пакетов на to-r3 — "
-        f"есть потери, хотя живой путь существует."
-    )
     assert totals.get("to-r3", 0) == captured, (
         f"Не весь захваченный трафик прошёл через to-r3: {totals}"
     )
@@ -169,34 +162,17 @@ def test_link_recovery_balances_between_paths(to_r2_down, tmp_path):
         attachment_type=allure.attachment_type.TEXT,
     )
 
-    with allure.step(f"Захват на to-r2 и to-r3 + отправка {N_PACKETS} ICMP со случайными Src IP"):
-        with Capture(
-            interfaces=["to-r2", "to-r3"], bpf=DEFAULT_BPF, output_dir=tmp_path,
-        ) as pcaps_after:
-            sent = send_from_h1(count=N_PACKETS, strategy="random")
-
-    attach_pcaps(pcaps_after)
+    pcaps_after, sent = run_test_traffic(
+        output_dir=tmp_path, count=N_PACKETS, strategy="random",
+        interfaces=["to-r2", "to-r3"],
+    )
 
     totals_after = total_per_iface(pcaps_after, dst_ip=H2_IP)
-
-    allure.attach(
-        f"sent: {len(sent)}\ncaptured per iface: {totals_after}",
-        name="link-recovery summary",
-        attachment_type=allure.attachment_type.TEXT,
-    )
-
-    captured_after = sum(totals_after.values())
     ratios = balance_ratio(pcaps_after, dst_ip=H2_IP)
 
-    summary = (
-        f"packets per iface: {totals_after}\n"
-        f"balance ratios:    { {k: round(v, 4) for k,v in ratios.items()} }"
+    attach_distribution_summary(
+        totals_after, ratios,
+        name="distribution summary after recovery",
+        sent=len(sent),
     )
-
-    allure.attach(summary, name="distribution summary after recovery", attachment_type=allure.attachment_type.TEXT)
-
-    for iface, p in ratios.items():
-        assert abs(p - 0.5) < BALANCE_TOLERANCE, (
-            f"Дисбаланс на {iface}: доля {p:.3f} (ожидалось 0.5 ± {BALANCE_TOLERANCE}).\n"
-            f"Полные счётчики: {totals}"
-        )
+    assert_balanced(ratios, totals_after, context="after recovery")

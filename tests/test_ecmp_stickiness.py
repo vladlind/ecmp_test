@@ -8,9 +8,7 @@ Pass: для каждого Src IP только один интерфейс (to-
 import allure
 import pytest
 
-from helpers.capture import Capture
-from helpers.common import DEFAULT_BPF, ECMP_INTERFACES, H2_IP, attach_pcaps
-from helpers.traffic import send_from_h1
+from helpers.common import H2_IP, run_test_traffic
 from helpers.analyzer import src_ip_to_ifaces
 
 
@@ -28,13 +26,9 @@ pytestmark = [
 @allure.severity(allure.severity_level.CRITICAL)
 @allure.title(f"{N_PACKETS} пакетов: каждый Src IP всегда на одном nexthop'е")
 def test_each_src_ip_sticks_to_one_path(topology, tmp_path):
-    with allure.step(f"Захват + отправка {N_PACKETS} ICMP со случайными Src IP"):
-        with Capture(
-            interfaces=ECMP_INTERFACES, bpf=DEFAULT_BPF, output_dir=tmp_path,
-        ) as pcaps:
-            sent_srcs = send_from_h1(count=N_PACKETS, strategy="random")
-
-    attach_pcaps(pcaps)
+    pcaps, sent_srcs = run_test_traffic(
+        output_dir=tmp_path, count=N_PACKETS, strategy="random",
+    )
 
     mapping = src_ip_to_ifaces(pcaps, dst_ip=H2_IP)
     violations = {src: sorted(ifaces) for src, ifaces in mapping.items() if len(ifaces) > 1}
