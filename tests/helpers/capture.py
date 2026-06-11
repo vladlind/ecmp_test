@@ -11,15 +11,19 @@
 
 from __future__ import annotations
 
+import os
+import select
 import subprocess
 import time
 from pathlib import Path
 from typing import IO
 
 
-CAPTURE_WARMUP_S = 0.8     # дать tcpdump'у инициализироваться
-CAPTURE_DRAIN_S = 0.5      # дать tcpdump'у поймать последние пакеты
+CAPTURE_READY_TIMEOUT_S = 10  # максимум ждём баннер "listening on" от tcpdump
+CAPTURE_DRAIN_S = 0.5         # дать tcpdump'у поймать последние пакеты
 TCPDUMP_MAX_DURATION_S = 60
+
+_LISTENING_MARKER = b"listening on"
 
 
 class Capture:
@@ -59,10 +63,41 @@ class Capture:
                 "tcpdump", "-i", iface, "-U", "-n", "-w", "-", self.bpf,
             ]
             self._procs[iface] = subprocess.Popen(
-                cmd, stdout=f, stderr=subprocess.DEVNULL,
+                cmd, stdout=f, stderr=subprocess.PIPE,
             )
-        time.sleep(CAPTURE_WARMUP_S)
+        self._wait_until_listening()
         return self._pcaps
+
+    def _wait_until_listening(self) -> None:
+        pending: dict[str, bytes] = {iface: b"" for iface in self._procs}
+        fd_to_iface = {
+            proc.stderr.fileno(): iface
+            for iface, proc in self._procs.items()
+        }
+        deadline = time.monotonic() + CAPTURE_READY_TIMEOUT_S
+
+        while pending:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    "tcpdump not ready on interfaces "
+                    f"{CAPTURE_READY_TIMEOUT_S}s: {sorted(pending)}"
+                )
+            ready_fds = [self._procs[i].stderr.fileno() for i in pending]
+            rlist, _, _ = select.select(ready_fds, [], [], remaining)
+            if not rlist:
+                continue
+            for fd in rlist:
+                iface = fd_to_iface[fd]
+                chunk = os.read(fd, 4096)
+                if not chunk:
+                    raise RuntimeError(
+                        f"tcpdump on {iface} terminated before capture started: "
+                        f"{pending[iface].decode(errors='replace').strip()!r}"
+                    )
+                pending[iface] += chunk
+                if _LISTENING_MARKER in pending[iface]:
+                    del pending[iface]
 
     def __exit__(self, exc_type, exc, tb) -> bool:
         time.sleep(CAPTURE_DRAIN_S)
@@ -72,10 +107,15 @@ class Capture:
         )
         for proc in self._procs.values():
             try:
+                if proc.stderr is not None:
+                    proc.stderr.read()
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait(timeout=2)
+            finally:
+                if proc.stderr is not None:
+                    proc.stderr.close()
         for f in self._files.values():
             f.close()
         return False

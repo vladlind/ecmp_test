@@ -149,7 +149,7 @@ def test_link_recovery_balances_between_paths(to_r2_down, tmp_path):
         ospf_rib_after_up = exec_in("r1", f"show ip route ospf {ECMP_DEST_NET}", "vtysh").stdout
         pytest.fail(
             f"nexthop через R2 не вернулся за {RECONVERGE_TIMEOUT_S}s. "
-            f"Текущий маршрут на R1:\n{routes_after_up}",
+            f"Текущий маршрут на R1:\n{routes_after_up}"
             f"OSPF RIB на R1:\n{ospf_rib_after_up}",
             pytrace=False,
         )
