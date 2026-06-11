@@ -1,6 +1,6 @@
 """
-Генерирует трафик из h1 через `docker exec`.
-Реальный отправитель — h1_send.py, монтируется в h1 как /helpers/h1_send.py.
+Generates traffic from h1 via `docker exec`.
+The actual sender is h1_send.py, mounted into h1 as /helpers/h1_send.py.
 """
 
 from __future__ import annotations

@@ -1,12 +1,12 @@
 """
-Сценарий #2 (контроль/негатив): с одного Src IP весь трафик идёт одной дорогой.
+Scenario #2 (control/negative): from a single Src IP all traffic takes one path.
 
-Подтверждает детерминизм hash'а: если входной материал постоянный, выходной
-выбор тоже один и тот же. Это страховка от ложноположительного «равномерного»
-распределения, которое могло бы возникнуть, например, если хеш игнорирует
-Src IP и берёт что-то ещё.
+Confirms the hash is deterministic: if the input is constant, the output choice
+is the same every time. This guards against a false-positive "even" distribution
+that could arise, for example, if the hash ignored the Src IP and used something
+else.
 
-Pass: >=99% пакетов на одном из {to-r2, to-r3}.
+Pass: >=99% of packets on one of {to-r2, to-r3}.
 """
 
 import allure
@@ -27,9 +27,9 @@ pytestmark = [
 ]
 
 
-@allure.story("Один Src IP всегда одним путем")
+@allure.story("A single Src IP always takes one path")
 @allure.severity(allure.severity_level.CRITICAL)
-@allure.title("Один Src IP → весь трафик одним nexthop'ом (>=99%)")
+@allure.title("Single Src IP → all traffic via one nexthop (>=99%)")
 def test_single_src_ip_pins_to_single_path(topology, tmp_path):
     pcaps, _ = run_test_traffic(
         output_dir=tmp_path, count=N_PACKETS, strategy="single", src="10.0.1.10",
@@ -46,6 +46,6 @@ def test_single_src_ip_pins_to_single_path(topology, tmp_path):
     max_share = max(totals.values()) / captured
     chosen = max(totals, key=totals.get)
     assert max_share >= SAME_PATH_THRESHOLD, (
-        f"Ожидалось >={SAME_PATH_THRESHOLD*100:.0f}% на одном интерфейсе, "
-        f"факт: {totals} (макс. {max_share*100:.1f}% на {chosen})"
+        f"Expected >={SAME_PATH_THRESHOLD*100:.0f}% on one interface, "
+        f"actual: {totals} (max {max_share*100:.1f}% on {chosen})"
     )

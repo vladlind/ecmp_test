@@ -1,5 +1,5 @@
 """
-Общие константы и хелперы для всех ECMP-тестов.
+Shared constants and helpers for all ECMP tests.
 """
 
 from __future__ import annotations
@@ -13,21 +13,21 @@ import allure
 from .capture import Capture
 from .traffic import send_from_h1
 
-# H2 = единственный получатель тестового трафика; BPF-фильтр у tcpdump'а
-# вырезает всё кроме него (отсеивает OSPF Hello, ARP и прочее).
+# H2 = the only recipient of test traffic; tcpdump's BPF filter cuts out
+# everything else (filters out OSPF Hello, ARP, etc.).
 H2_IP = "10.0.2.10"
 DEFAULT_BPF = f"ip and dst host {H2_IP}"
 
-# ECMP-маршрут на R1: подсеть H2 и два nexthop'а (R2, R3).
+# ECMP route on R1: the H2 subnet and two nexthops (R2, R3).
 ECMP_DEST_NET = "10.0.2.0/24"
 ECMP_NEXTHOPS = ("10.0.12.2", "10.0.13.2")
 
-# Два ECMP-интерфейса R1, через которые ходит трафик к H2.
+# The two ECMP interfaces on R1 that carry traffic to H2.
 ECMP_INTERFACES = ["to-r2", "to-r3"]
 
 
 def exec_in(container: str, cmd: str, sh: str = "sh", *, timeout: float = 30.0) -> subprocess.CompletedProcess:
-    """`docker exec <container> sh -c '<cmd>'` без проверки exit code."""
+    """`docker exec <container> sh -c '<cmd>'` without checking the exit code."""
     return subprocess.run(
         ["docker", "exec", container, sh, "-c", cmd],
         capture_output=True, text=True, timeout=timeout,
@@ -35,7 +35,7 @@ def exec_in(container: str, cmd: str, sh: str = "sh", *, timeout: float = 30.0) 
 
 
 def exec_in_check(container: str, cmd: str, *, timeout: float = 30.0) -> str:
-    """То же, но падает при rc != 0; возвращает stdout."""
+    """Same, but raises on rc != 0; returns stdout."""
     r = exec_in(container, cmd, timeout=timeout)
     if r.returncode != 0:
         raise RuntimeError(
@@ -71,16 +71,16 @@ def run_test_traffic(
     **send_kwargs: Any,
 ) -> tuple[dict[str, Path], list[str]]:
     """
-    Запустить tcpdump на интерфейсах + send_from_h1 + attach_pcaps.
-    Возвращает (pcaps, sent_srcs).
+    Run tcpdump on the interfaces + send_from_h1 + attach_pcaps.
+    Returns (pcaps, sent_srcs).
     """
     if interfaces is None:
         interfaces = ECMP_INTERFACES
     if step_label is None:
         proto = send_kwargs.get("proto", "ICMP")
         step_label = (
-            f"Захват на {container} ({', '.join(interfaces)}) + "
-            f"отправка {count} {proto} ({strategy})"
+            f"Capture on {container} ({', '.join(interfaces)}) + "
+            f"sending {count} {proto} ({strategy})"
         )
     with allure.step(step_label):
         with Capture(
@@ -101,8 +101,8 @@ def assert_no_capture_loss(
     captured = sum(totals.values())
     prefix = f"[{context}] " if context else ""
     assert captured >= int(n_sent * min_ratio), (
-        f"{prefix}Захвачено {captured}/{n_sent} (<{min_ratio*100:.0f}%) — "
-        f"потери или баг захвата:\n{totals}"
+        f"{prefix}Captured {captured}/{n_sent} (<{min_ratio*100:.0f}%) — "
+        f"packet loss or a capture bug:\n{totals}"
     )
 
 
@@ -116,8 +116,8 @@ def assert_balanced(
     prefix = f"[{context}] " if context else ""
     for iface, p in ratios.items():
         assert abs(p - 0.5) < tolerance, (
-            f"{prefix}Дисбаланс на {iface}: доля {p:.3f} "
-            f"(ожидалось 0.5 ± {tolerance}). Полные счётчики: {totals}"
+            f"{prefix}Imbalance on {iface}: ratio {p:.3f} "
+            f"(expected 0.5 ± {tolerance}). Full counters: {totals}"
         )
 
 
@@ -129,9 +129,9 @@ def attach_distribution_summary(
     **extra: Any,
 ) -> None:
     lines = [f"{k}: {v}" for k, v in extra.items()]
-    lines.append(f"пакетов на интерфейсах: {totals}")
+    lines.append(f"packets per interface: {totals}")
     lines.append(
-        f"баланс:    { {k: round(v, 4) for k, v in ratios.items()} }"
+        f"balance:    { {k: round(v, 4) for k, v in ratios.items()} }"
     )
     allure.attach(
         "\n".join(lines), name=name, attachment_type=allure.attachment_type.TEXT,

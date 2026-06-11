@@ -1,9 +1,10 @@
 """
-Сценарий #6: Edge IP values — крайние адреса диапазона 10.99.0.0/16.
+Scenario #6: Edge IP values — the boundary addresses of the 10.99.0.0/16 range.
 
-Шлём ICMP с граничных Src IP подсети, которую обычно используют distribution-
-тесты: 10.99.0.0 (network address) и 10.99.255.255 (broadcast address).
-Pass: оба Src IP захвачены, и каждый из них уходит через один интерфейс.
+We send ICMP from the boundary Src IPs of the subnet usually used by the
+distribution tests: 10.99.0.0 (network address) and 10.99.255.255 (broadcast
+address).
+Pass: both Src IPs are captured, and each of them leaves via a single interface.
 """
 
 import allure
@@ -24,9 +25,9 @@ pytestmark = [
 ]
 
 
-@allure.story("Пограничные Src IPs распределяются по интерфейсам так же как и остальные IP")
+@allure.story("Boundary Src IPs are distributed across interfaces the same way as other IPs")
 @allure.severity(allure.severity_level.NORMAL)
-@allure.title("Edge Src IPs (10.99.0.0 и 10.99.255.255): без дропов и через один и тот же интерфейс")
+@allure.title("Edge Src IPs (10.99.0.0 and 10.99.255.255): no drops and via the same interface")
 def test_edge_src_ips_are_handled_consistently(topology, tmp_path):
     pcaps, _ = run_test_traffic(
         output_dir=tmp_path, count=N_PACKETS, strategy="edges",
@@ -35,7 +36,7 @@ def test_edge_src_ips_are_handled_consistently(topology, tmp_path):
     mapping = src_ip_to_ifaces(pcaps, dst_ip=H2_IP)
 
     summary = "\n".join(
-        f"  {src}: {sorted(mapping.get(src, set())) or '— не захвачен —'}"
+        f"  {src}: {sorted(mapping.get(src, set())) or '— not captured —'}"
         for src in EDGE_IPS
     )
     allure.attach(
@@ -46,11 +47,11 @@ def test_edge_src_ips_are_handled_consistently(topology, tmp_path):
 
     missing = [src for src in EDGE_IPS if src not in mapping]
     assert not missing, (
-        f"Edge Src IP не дошли до R1 ECMP-интерфейсов: {missing}. "
+        f"Edge Src IPs did not reach R1's ECMP interfaces: {missing}. "
     )
 
     multi_path = {src: sorted(mapping[src]) for src in EDGE_IPS if len(mapping[src]) > 1}
     assert not multi_path, (
-        f"Edge Src IP размазались по нескольким nexthop'ам: {multi_path}. "
-        f"Stickiness должен держаться и на крайних значениях диапазона."
+        f"Edge Src IPs were spread across multiple nexthops: {multi_path}. "
+        f"Stickiness must hold even at the boundary values of the range."
     )

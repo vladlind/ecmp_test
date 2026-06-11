@@ -1,9 +1,9 @@
 services:
 
-  # ========== Init: фиксы для multicast на bridges ==========
+  # ========== Init: multicast fixes for the bridges ==========
   #
-  # Docker по умолчанию ставит на каждом bridge multicast_snooping=1, 
-  # а на хосте — bridge-nf-call-iptables=1.
+  # By default Docker sets multicast_snooping=1 on each bridge,
+  # and bridge-nf-call-iptables=1 on the host.
 
   init-bridges:
     image: alpine:3.20
@@ -28,7 +28,7 @@ services:
         done
         echo "[init-bridges] done"
 
-  # ========== Хосты ==========
+  # ========== Hosts ==========
 
   h1:
     build:
@@ -69,7 +69,7 @@ services:
       br-r4h2:
         ipv4_address: 10.0.2.10
 
-  # ========== Роутеры ==========
+  # ========== Routers ==========
 
   r1:
     build:
@@ -84,8 +84,8 @@ services:
     sysctls:
       net.ipv4.ip_forward: 1
       net.ipv4.fib_multipath_hash_policy: 0
-      # Отключаем RPF check - H1 шлёт с произвольных Src IP из 10.99.0.0/16,
-      # маршрут к которым неизвестен роутерам
+      # Disable the RPF check - H1 sends from arbitrary Src IPs in 10.99.0.0/16,
+      # for which the routers have no route
       net.ipv4.conf.all.rp_filter: 0
       net.ipv4.conf.default.rp_filter: 0
     environment:
@@ -194,9 +194,9 @@ services:
       br-r4h2:
         ipv4_address: 10.0.2.1
 
-  # ========== Runner (oркестрирует тесты через docker exec) ==========
+  # ========== Runner (orchestrates the tests via docker exec) ==========
   #
-  # Не подключён ни к одному br-* — топология управляется через docker.sock.
+  # Not attached to any br-* — the topology is driven through docker.sock.
 
   runner:
     build:
@@ -228,28 +228,28 @@ networks:
     ipam:
       config:
         - subnet: 10.0.12.0/29
-          gateway: 10.0.12.3    # фиктивный шлюз, так как Docker автоматом ставит 10.0.12.1
+          gateway: 10.0.12.3    # dummy gateway, since Docker would otherwise auto-assign 10.0.12.1
   br-r1r3:
     driver: bridge
     internal: true
     ipam:
       config:
         - subnet: 10.0.13.0/29
-          gateway: 10.0.13.3   # фиктивный шлюз, так как Docker автоматом ставит 10.0.13.1
+          gateway: 10.0.13.3   # dummy gateway, since Docker would otherwise auto-assign 10.0.13.1
   br-r2r4:
     driver: bridge
     internal: true
     ipam:
       config:
         - subnet: 10.0.24.0/29
-          gateway: 10.0.24.3    # фиктивный шлюз, так как Docker автоматом ставит 10.0.24.1
+          gateway: 10.0.24.3    # dummy gateway, since Docker would otherwise auto-assign 10.0.24.1
   br-r3r4:
     driver: bridge
     internal: true
     ipam:
       config:
         - subnet: 10.0.34.0/29
-          gateway: 10.0.34.3    # фиктивный шлюз, так как Docker автоматом ставит 10.0.34.1
+          gateway: 10.0.34.3    # dummy gateway, since Docker would otherwise auto-assign 10.0.34.1
   br-r4h2:
     driver: bridge
     internal: true

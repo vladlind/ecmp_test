@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Развертывание тестового окружения и проверка наличия ECMP маршрутов после сходимости OSPF
-# Использование:
-#   ./run.sh           — см. выше на строке 2 
-#   ./run.sh test      — см. выше на строке 2 + запуск тестов с генерацией отчетов
+# Deploy the test environment and verify the ECMP routes are present after OSPF converges.
+# Usage:
+#   ./run.sh           — see line 2 above
+#   ./run.sh test      — see line 2 above + run the tests and generate reports
 
 set -euo pipefail
 

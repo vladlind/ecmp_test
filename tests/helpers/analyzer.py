@@ -1,5 +1,5 @@
 """
-Анализ pcap'ов из Capture.
+Analysis of the pcaps produced by Capture.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ def _iter_ip(pcap: Path, dst_ip: str | None):
 
 
 def total_per_iface(pcaps: dict[str, Path], dst_ip: str | None = None) -> dict[str, int]:
-    """Сколько IP-пакетов (с нужным dst) в каждом интерфейсе."""
+    """How many IP packets (with the desired dst) are on each interface."""
     return {iface: sum(1 for _ in _iter_ip(p, dst_ip)) for iface, p in pcaps.items()}
 
 
@@ -41,9 +41,9 @@ def src_ip_to_ifaces(
     pcaps: dict[str, Path], dst_ip: str | None = None
 ) -> dict[str, set[str]]:
     """
-    Для каждого Src IP — множество интерфейсов, на которых он замечен.
-    Для корректного ECMP с stickiness каждый Src IP должен попасть строго
-    на один интерфейс (set размера 1).
+    For each Src IP — the set of interfaces it was seen on.
+    For correct ECMP with stickiness, each Src IP must land on exactly
+    one interface (a set of size 1).
     """
     result: dict[str, set[str]] = defaultdict(set)
     for iface, p in pcaps.items():

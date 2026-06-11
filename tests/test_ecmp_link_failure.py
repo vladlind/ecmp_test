@@ -1,16 +1,16 @@
 """
-Сценарий #7: Link failure — переход на оставшийся путь.
+Scenario #7: Link failure — failover to the remaining path.
 
-В первом тесте:
-Гасим to-r2 на R1 (`ip link set to-r2 down`), ждём, пока OSPF удалит nexthop
-через R2, потом шлём трафик с разными Src IP. Проверяем:
-  (а) ECMP-маршрут на R1 теперь имеет один nexthop (через R3);
-  (б) ни один пакет не потерян после сходимости (>=99% из отправленных пойманы на R1);
-  (в) 100% пойманного трафика прошло через to-r3.
+In the first test:
+We bring to-r2 down on R1 (`ip link set to-r2 down`), wait for OSPF to remove
+the nexthop via R2, then send traffic with various Src IPs. We check:
+  (a) the ECMP route on R1 now has a single nexthop (via R3);
+  (b) no packet is lost after convergence (>=99% of those sent are caught on R1);
+  (c) 100% of the caught traffic went through to-r3.
 
-Во втором тесте:
-Поднимаем интерфейс обратно и ждём восстановления ECMP, чтобы
-проверить балансировку по обоим nexthop'ам (каждый должен получить примерно половину трафика)
+In the second test:
+We bring the interface back up and wait for ECMP to recover, to verify
+balancing across both nexthops (each should receive roughly half of the traffic).
 """
 
 from __future__ import annotations
@@ -34,9 +34,9 @@ from helpers.analyzer import balance_ratio, total_per_iface
 
 
 N_PACKETS = 500
-RECONVERGE_TIMEOUT_S = 60    # ждем долго, так как приходится рестартовать frr - см.ниже коммент
-DOWN_NEXTHOP = "10.0.12.2"   # через R2 — должен исчезнуть
-ALIVE_NEXTHOP = "10.0.13.2"  # через R3 — должен остаться
+RECONVERGE_TIMEOUT_S = 60    # we wait long, since frr has to be restarted - see comment below
+DOWN_NEXTHOP = "10.0.12.2"   # via R2 — must disappear
+ALIVE_NEXTHOP = "10.0.13.2"  # via R3 — must remain
 
 pytestmark = [
     pytest.mark.distribution,
@@ -45,7 +45,8 @@ pytestmark = [
 ]
 
 """
-Обертка над boolean функцией c таймаутом - выполнять функцию в переделах таймаута, пока не вернет true
+Wrapper around a boolean function with a timeout - run the function within the
+timeout until it returns true.
 """
 def _wait_until(predicate, timeout_s: float, poll_s: float = 1.0) -> bool:
     deadline = time.time() + timeout_s
@@ -72,17 +73,17 @@ def _route_has_ecmp() -> bool:
 @pytest.fixture(scope="module")
 def to_r2_down(topology):
     """
-    Кладет to-r2 на R1, ждёт OSPF-сходимости на единственный nexthop через R3.
-    На teardown поднимает интерфейс обратно и дожидается, пока ECMP-маршрут
-    с >=2 nexthop'ами вернётся
+    Brings to-r2 down on R1, waits for OSPF to converge onto a single nexthop
+    via R3. On teardown brings the interface back up and waits until the ECMP
+    route with >=2 nexthops returns.
     """
     exec_in_check("r1", "ip link set to-r2 down")
     try:
         if not _wait_until(_route_via_r3_only, RECONVERGE_TIMEOUT_S):
             out = exec_in("r1", f"ip route show {ECMP_DEST_NET}").stdout
             pytest.fail(
-                f"OSPF не выкинул nexthop через R2 за {RECONVERGE_TIMEOUT_S}s. "
-                f"Текущий маршрут на R1:\n{out}",
+                f"OSPF did not drop the nexthop via R2 within {RECONVERGE_TIMEOUT_S}s. "
+                f"Current route on R1:\n{out}",
                 pytrace=False,
             )
         yield
@@ -90,15 +91,15 @@ def to_r2_down(topology):
         if not _route_has_ecmp():
             out = exec_in("r1", f"ip route show {ECMP_DEST_NET}").stdout
             pytest.fail(
-                f"После поднятия to-r2 ECMP не восстановился за "
-                f"{RECONVERGE_TIMEOUT_S}s. Маршрут на R1:\n{out}",
+                f"After bringing to-r2 up, ECMP did not recover within "
+                f"{RECONVERGE_TIMEOUT_S}s. Route on R1:\n{out}",
                 pytrace=False,
             )
 
 @pytest.mark.order(1)
-@allure.story("После отключения одного из линков трафик идет по оставшемуся пути")
+@allure.story("After one of the links goes down, traffic takes the remaining path")
 @allure.severity(allure.severity_level.CRITICAL)
-@allure.title("to-r2 down: маршрут удаляется на R3, весь трафик идёт через R3, без потерь")
+@allure.title("to-r2 down: route collapses to R3, all traffic goes via R3, no loss")
 def test_link_failure_falls_back_to_remaining_path(to_r2_down, tmp_path):
     route_after_down = exec_in("r1", f"ip route show {ECMP_DEST_NET}").stdout
     allure.attach(
@@ -107,10 +108,10 @@ def test_link_failure_falls_back_to_remaining_path(to_r2_down, tmp_path):
         attachment_type=allure.attachment_type.TEXT,
     )
     assert ALIVE_NEXTHOP in route_after_down and DOWN_NEXTHOP not in route_after_down, (
-        f"Ожидался единственный nexthop через {ALIVE_NEXTHOP}, факт:\n{route_after_down}"
+        f"Expected a single nexthop via {ALIVE_NEXTHOP}, actual:\n{route_after_down}"
     )
     assert route_after_down.count("nexthop") <= 1, (
-        f"Маршрут всё ещё multipath после падения to-r2:\n{route_after_down}"
+        f"Route is still multipath after to-r2 went down:\n{route_after_down}"
     )
 
     pcaps, sent = run_test_traffic(
@@ -128,19 +129,19 @@ def test_link_failure_falls_back_to_remaining_path(to_r2_down, tmp_path):
     assert_no_capture_loss(totals, N_PACKETS, min_ratio=0.99, context="after to-r2 down")
     captured = sum(totals.values())
     assert totals.get("to-r3", 0) == captured, (
-        f"Не весь захваченный трафик прошёл через to-r3: {totals}"
+        f"Not all captured traffic went through to-r3: {totals}"
     )
 
 @pytest.mark.order(2)
-@allure.story("После после восстановления линка - трафик балансируется")
+@allure.story("After the link recovers - traffic is balanced again")
 @allure.severity(allure.severity_level.CRITICAL)
-@allure.title("to-r2 up: маршрут восстанавливается на R3 и балансируется по двум nexthop'ам")
+@allure.title("to-r2 up: route recovers and balances across the two nexthops")
 def test_link_recovery_balances_between_paths(to_r2_down, tmp_path):
     exec_in("r1", "ip link set to-r2 up")
     """
-    Рестарт frr вынужденный - после включения линка zebra почему-то не принимает
-    восстановленный мульти-хоп маршрут от ospf. 
-    Похоже на описание в баг-репорте - https://github.com/FRRouting/frr/issues/15505
+    The frr restart is forced - after the link comes back up, zebra for some
+    reason does not accept the recovered multi-hop route from ospf.
+    Looks like the issue described in the bug report - https://github.com/FRRouting/frr/issues/15505
     """
     exec_in("r1", "/usr/lib/frr/frrinit.sh restart")
 
@@ -148,9 +149,9 @@ def test_link_recovery_balances_between_paths(to_r2_down, tmp_path):
         routes_after_up = exec_in("r1", f"ip route show {ECMP_DEST_NET}").stdout
         ospf_rib_after_up = exec_in("r1", f"show ip route ospf {ECMP_DEST_NET}", "vtysh").stdout
         pytest.fail(
-            f"nexthop через R2 не вернулся за {RECONVERGE_TIMEOUT_S}s. "
-            f"Текущий маршрут на R1:\n{routes_after_up}"
-            f"OSPF RIB на R1:\n{ospf_rib_after_up}",
+            f"the nexthop via R2 did not return within {RECONVERGE_TIMEOUT_S}s. "
+            f"Current route on R1:\n{routes_after_up}"
+            f"OSPF RIB on R1:\n{ospf_rib_after_up}",
             pytrace=False,
         )
 

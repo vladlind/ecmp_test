@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Запускается ВНУТРИ контейнера h1. Шлёт ICMP-эхо к фиксированному dst,
-варьируя Source IP по выбранной стратегии.
+Runs INSIDE the h1 container. Sends ICMP echo to a fixed dst,
+varying the Source IP according to the chosen strategy.
 
-Стратегии Src IP:
-  single      — все пакеты с одного --src
-  sequential  — берёт последовательные адреса из --src-base
-  random      — случайные адреса из --src-base
-  sparse      — равномерно разреженные адреса из всего пула адресов
-  edges       — берет крайние адреса --src-base (network и broadcast)
+Src IP strategies:
+  single      — all packets from a single --src
+  sequential  — takes consecutive addresses from --src-base
+  random      — random addresses from --src-base
+  sparse      — evenly spread addresses across the whole address pool
+  edges       — takes the edge addresses of --src-base (network and broadcast)
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from scapy.all import IP, ICMP, UDP, TCP, Raw, send, conf
 
 conf.verb = 0
 
-rnd = random.Random(0xECF1)  # повторяемость случайного ряда
+rnd = random.Random(0xECF1)  # reproducible random sequence
 
 def gen_src_ips(strategy: str, count: int, src: str, src_base: str) -> list[str]:
     if strategy == "single":

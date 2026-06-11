@@ -1,10 +1,10 @@
 """
-Сценарий #3: 1000 уникальных Src IP — оба пути загружены сбалансированно.
+Scenario #3: 1000 unique Src IPs — both paths are loaded in a balanced way.
 
-Это headline-проверка ECMP: есть два равноценных пути и hash должен раскидывать
-входной поток примерно поровну.
+This is the headline ECMP check: there are two equal-cost paths and the hash
+must spread the input flow roughly evenly.
 
-Pass: |доля_пути − 0.5| < 0.1 (т.е. на каждом интерфейсе 40..60%).
+Pass: |path_ratio − 0.5| < 0.1 (i.e. 40..60% on each interface).
 """
 
 import allure
@@ -30,9 +30,9 @@ pytestmark = [
 ]
 
 @pytest.mark.parametrize("proto", ["ICMP", "UDP", "TCP"])
-@allure.story("Множество src IP балансирует между двумя маршрутами")
+@allure.story("Many src IPs balance across the two routes")
 @allure.severity(allure.severity_level.CRITICAL)
-@allure.title(f"{N_PACKETS} {{proto}}  случайных Src IP → соотношение балансируемого трафика в пределах 40%..60%")
+@allure.title(f"{N_PACKETS} {{proto}} random Src IPs → balanced traffic ratio within 40%..60%")
 def test_many_src_ips_distribute_evenly(topology, tmp_path, proto):
     pcaps, _ = run_test_traffic(
         output_dir=tmp_path, count=N_PACKETS, strategy="random", proto=proto,

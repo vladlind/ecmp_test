@@ -1,8 +1,8 @@
 """
-Контекстный менеджер для синхронных tcpdump-захватов на нескольких
-интерфейсах одного контейнера (в нашем случае r1: to-r2 и to-r3).
+Context manager for synchronous tcpdump captures on several
+interfaces of a single container (in our case r1: to-r2 and to-r3).
 
-Использование:
+Usage:
     with Capture(interfaces=["to-r2", "to-r3"],
                  bpf="ip and dst host 10.0.2.10",
                  output_dir=tmp_path) as pcaps:
@@ -19,8 +19,8 @@ from pathlib import Path
 from typing import IO
 
 
-CAPTURE_READY_TIMEOUT_S = 10  # максимум ждём баннер "listening on" от tcpdump
-CAPTURE_DRAIN_S = 0.5         # дать tcpdump'у поймать последние пакеты
+CAPTURE_READY_TIMEOUT_S = 10  # max time we wait for tcpdump's "listening on" banner
+CAPTURE_DRAIN_S = 0.5         # let tcpdump catch the last packets
 TCPDUMP_MAX_DURATION_S = 60
 
 _LISTENING_MARKER = b"listening on"
@@ -47,7 +47,7 @@ class Capture:
         self._pcaps: dict[str, Path] = {}
 
     def __enter__(self) -> dict[str, Path]:
-        # На случай зомби-процессов от прошлого прогона.
+        # In case of zombie processes left over from a previous run.
         subprocess.run(
             ["docker", "exec", self.container, "pkill", "-x", "tcpdump"],
             capture_output=True, check=False,

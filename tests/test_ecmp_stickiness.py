@@ -1,8 +1,8 @@
 """
-Сценарий #5: per-flow consistency — каждый Src IP всегда уходит одним и тем же
-nexthop'ом.
+Scenario #5: per-flow consistency — each Src IP always leaves via the same
+nexthop.
 
-Pass: для каждого Src IP только один интерфейс (to-r2 или to-r3), на котором он замечен.
+Pass: for each Src IP only one interface (to-r2 or to-r3) it is seen on.
 """
 
 import allure
@@ -22,9 +22,9 @@ pytestmark = [
 ]
 
 
-@allure.story("Каждый Src IP всегда придерживается своего пути")
+@allure.story("Each Src IP always sticks to its own path")
 @allure.severity(allure.severity_level.CRITICAL)
-@allure.title(f"{N_PACKETS} пакетов: каждый Src IP всегда на одном nexthop'е")
+@allure.title(f"{N_PACKETS} packets: each Src IP always on one nexthop")
 def test_each_src_ip_sticks_to_one_path(topology, tmp_path):
     pcaps, sent_srcs = run_test_traffic(
         output_dir=tmp_path, count=N_PACKETS, strategy="random",
@@ -45,10 +45,10 @@ def test_each_src_ip_sticks_to_one_path(topology, tmp_path):
         allure.attach(details, name="violations (first 20)", attachment_type=allure.attachment_type.TEXT)
 
     assert not violations, (
-        f"Нарушений stickiness: {len(violations)} (из {len(mapping)} уникальных Src IP). "
-        f"Каждый Src IP должен всегда уходить одним и тем же nexthop'ом."
+        f"Stickiness violations: {len(violations)} (out of {len(mapping)} unique Src IPs). "
+        f"Each Src IP must always leave via the same nexthop."
     )
     assert len(mapping) >= int(len(set(sent_srcs)) * 0.95), (
-        f"В захвате {len(mapping)} уникальных Src IP, отправлено {len(set(sent_srcs))} — "
-        f"захватили <95%, возможны потери."
+        f"Captured {len(mapping)} unique Src IPs, sent {len(set(sent_srcs))} — "
+        f"captured <95%, possible packet loss."
     )
